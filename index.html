@@ -10,7 +10,7 @@
 
   <script type="text/javascript" src="./krona-2.0.js"> </script>
 
-  <script language="javascript" type="text/javascript">
+  <script type="text/javascript">
     document.addEventListener("DOMContentLoaded", function() {
       /******************************************************* Declare variables *******************************************************/
 
@@ -194,7 +194,8 @@
         console.log(DATA);
 
         NEST = nestLayer({
-          id: "krona",
+          id: "root",
+          name: METADATA.tiers[0].label,
           depth: 0,
           children: []
         });
@@ -207,7 +208,7 @@
         console.log("NEST AFTER PROP");
         console.log(NEST);
 
-        let DESCENDANTS = d3.hierarchy(NEST).descendants().slice(1);
+        let DESCENDANTS = d3.hierarchy(NEST).descendants();
 
         console.log("DESCENDANTS");
         console.log(DESCENDANTS);
@@ -395,7 +396,7 @@
       // Append nodes in tree using hierarchy
       function appendNode(entry) {
         // Append node
-        d3.select("#" + entry.parent.data.id)
+        d3.select("#" + (entry.parent ? entry.parent.data.id : "krona"))
           .append("node")
           .datum(entry)
           .attr("id", function(d) {
