@@ -236,8 +236,6 @@ var nLabelOffsets = 3; // the number of offsets to use
 
 var mouseX = -1;
 var mouseY = -1;
-var mouseXRel = -1;
-var mouseYRel = -1;
 
 // tweening
 //
@@ -286,25 +284,12 @@ var datasetWidths = new Array();
 var datasetChanged;
 var datasetSelectWidth = 50;
 
-window.loadKrona = load;
+window.onload = load;
 
 var image;
 var hiddenPattern;
 var loadingImage;
 var logoImage;
-
-function backingScale()
-{
-	if ('devicePixelRatio' in window)
-	{
-		if (window.devicePixelRatio > 1)
-		{
-			return window.devicePixelRatio;
-		}
-	}
-
-	return 1;
-}
 
 function resize()
 {
@@ -313,11 +298,8 @@ function resize()
 
 	if ( ! snapshotMode )
 	{
-		context.canvas.width = imageWidth * backingScale();
-		context.canvas.height = imageHeight * backingScale();
-		context.canvas.style.width = imageWidth + "px"
-		context.canvas.style.height = imageHeight + "px"
-		context.scale(backingScale(), backingScale());
+		context.canvas.width = imageWidth;
+		context.canvas.height = imageHeight;
 	}
 
 	if ( datasetDropDown )
@@ -521,7 +503,7 @@ function Node()
 			context.closePath();
 			context.rotate(-angleText);
 
-			if ( context.isPointInPath(mouseXRel, mouseYRel) )
+			if ( context.isPointInPath(mouseX - centerX, mouseY - centerY) )
 			{
 				var label = String(this.getPercentage()) + '%' + '   ' + this.name;
 
@@ -532,7 +514,7 @@ function Node()
 
 				if
 				(
-					Math.sqrt((mouseXRel) * (mouseXRel) + (mouseYRel) * (mouseYRel)) / backingScale() <
+					Math.sqrt((mouseX - centerX) * (mouseX - centerX) + (mouseY - centerY) * (mouseY - centerY)) <
 					radiusText + measureText(label)
 				)
 				{
@@ -555,7 +537,7 @@ function Node()
 				context.closePath();
 				context.rotate(-hiddenLabel.angle);
 
-				if ( context.isPointInPath(mouseXRel, mouseYRel) )
+				if ( context.isPointInPath(mouseX - centerX, mouseY - centerY) )
 				{
 					var label = String(hiddenLabel.value) + ' more';
 
@@ -566,7 +548,7 @@ function Node()
 
 					if
 					(
-						Math.sqrt((mouseXRel) * (mouseXRel) + (mouseYRel) * (mouseYRel)) / backingScale() <
+						Math.sqrt((mouseX - centerX) * (mouseX - centerX) + (mouseY - centerY) * (mouseY - centerY)) <
 						gRadius + fontSize + measureText(label)
 					)
 					{
@@ -584,7 +566,7 @@ function Node()
 			context.arc(0, 0, gRadius, angleEndCurrent, angleStartCurrent, true);
 			context.closePath();
 
-			if ( context.isPointInPath(mouseXRel, mouseYRel) )
+			if ( context.isPointInPath(mouseX - centerX, mouseY - centerY) )
 			{
 				highlighted = true;
 			}
@@ -756,7 +738,7 @@ function Node()
 
 //		if ( this.alphaWedge.current() > 0 || this.alphaLabel.current() > 0 )
 		{
-			var lastChildAngleEnd = angleStartCurrent;
+			var lastChildAngleEnd;
 
 			if ( this.hasChildren() )//canDisplayChildren )
 			{
@@ -774,7 +756,7 @@ function Node()
 					angleEndCurrent == this.parent.angleEnd.current() + rotationOffset
 				);
 
-				//if ( angleStartCurrent != angleEndCurrent )
+				if ( angleStartCurrent != angleEndCurrent )
 				{
 					this.drawLines(angleStartCurrent, angleEndCurrent, radiusInner, drawRadial, selected);
 				}
@@ -785,9 +767,7 @@ function Node()
 				if ( this == selectedNode || alphaOtherCurrent )
 				{
 					childRadiusInner =
-						this.children.length ?
-							this.children[this.children.length - 1].radiusInner.current() * gRadius
-						: radiusInner
+						this.children[this.children.length - 1].radiusInner.current() * gRadius;
 				}
 
 				if ( this == selectedNode )
@@ -940,7 +920,7 @@ function Node()
 					var lastChildAngle;
 					var truncateWedge =
 					(
-						(this.hasChildren() || this == selectedNode ) &&
+						this.hasChildren() &&
 						! this.keyed &&
 						(compress || depth < maxDisplayDepth) &&
 						drawChildren
@@ -948,7 +928,7 @@ function Node()
 
 					if ( truncateWedge )
 					{
-						radiusOuter = this.children.length ? this.children[0].radiusInner.current() * gRadius : radiusInner;
+						radiusOuter = this.children[0].radiusInner.current() * gRadius;
 					}
 					else
 					{
@@ -971,7 +951,7 @@ function Node()
 					*/
 					context.globalAlpha = alphaWedgeCurrent;
 
-					if ( radiusInner != radiusOuter || truncateWedge )
+					if ( radiusInner != radiusOuter )
 					{
 						drawWedge
 						(
@@ -2148,29 +2128,22 @@ function Node()
 
 	this.getUnclassifiedPercentage = function()
 	{
-		if ( this.children.length )
-		{
-			var lastChild = this.children[this.children.length - 1];
+		var lastChild = this.children[this.children.length - 1];
 
-			return getPercentage
+		return getPercentage
+		(
 			(
-				(
-					this.baseMagnitude +
-					this.magnitude -
-					lastChild.magnitude -
-					lastChild.baseMagnitude
-				) / this.magnitude
-			) + '%';
-		}
-		else
-		{
-			return '100%';
-		}
+				this.baseMagnitude +
+				this.magnitude -
+				lastChild.magnitude -
+				lastChild.baseMagnitude
+			) / this.magnitude
+		) + '%';
 	}
 
 	this.getUnclassifiedText = function()
 	{
-		return '[other '+ this.name + ']';
+		return '[unassigned '+ this.name + ']';
 	}
 
 	this.getUncollapsed = function()
@@ -2991,19 +2964,15 @@ function Node()
 		if ( this == selectedNode )
 		{
 			var otherArc =
-				this.children.length ?
-					angleFactor *
-					(
-						this.baseMagnitude + this.magnitude -
-						lastChild.baseMagnitude - lastChild.magnitude
-					)
-				: this.baseMagnitude + this.magnitude;
+				angleFactor *
+				(
+					this.baseMagnitude + this.magnitude -
+					lastChild.baseMagnitude - lastChild.magnitude
+				);
 			this.canDisplayLabelOther =
-				this.children.length ?
-					otherArc *
-					(this.children[0].radiusInner.end + 1) * gRadius >=
-					minWidth()
-				: true;
+				otherArc *
+				(this.children[0].radiusInner.end + 1) * gRadius >=
+				minWidth();
 
 			this.keyUnclassified = false;
 
@@ -3019,16 +2988,7 @@ function Node()
 
 			this.angleStart.setTarget(0);
 			this.angleEnd.setTarget(Math.PI * 2);
-
-			if ( this.children.length )
-			{
-				this.radiusInner.setTarget(0);
-			}
-			else
-			{
-				this.radiusInner.setTarget(compressedRadii[0]);
-			}
-
+			this.radiusInner.setTarget(0);
 			this.hidePrev = this.hide;
 			this.hide = false;
 			this.hideAlonePrev = this.hideAlone;
@@ -3572,14 +3532,14 @@ value="&harr;" title="Expand this wedge to become the new focus of the chart"/><
 	}
 	else
 	{
-		logoImage = 'http://marbl.github.io/Krona/img/logo-med.png';
+		logoImage = 'http://marbl.github.io/Krona/img/logo-small.png';
 	}
 
 //	document.getElementById('options').style.fontSize = '9pt';
 	position = addOptionElement
 	(
 		position,
-'<a style="margin:2px" target="_blank" href="https://github.com/marbl/Krona/wiki"><img style="vertical-align:middle;width:108px;height:30px;" src="' + logoImage + '" alt="Logo of Krona"/></a><input type="button" id="back" value="&larr;" title="Go back (Shortcut: &larr;)"/>\
+'<a style="margin:2px" target="_blank" href="https://github.com/marbl/Krona/wiki"><img style="vertical-align:middle;" src="' + logoImage + '"/></a><input type="button" id="back" value="&larr;" title="Go back (Shortcut: &larr;)"/>\
 <input type="button" id="forward" value="&rarr;" title="Go forward (Shortcut: &rarr;)"/> \
 &nbsp;Search: <input type="text" id="search"/>\
 <input id="searchClear" type="button" value="x" onclick="clearSearch()"/> \
@@ -3877,7 +3837,7 @@ function checkSelectedCollapse()
 		newNode = newNode.children[0];
 	}
 
-	if ( newNode.children.length == 0 && newNode.getParent() )
+	if ( newNode.children.length == 0 )
 	{
 		newNode = newNode.getParent();
 	}
@@ -5295,8 +5255,6 @@ function mouseMove(e)
 {
 	mouseX = e.pageX;
 	mouseY = e.pageY - headerHeight;
-	mouseXRel = (mouseX - centerX) * backingScale()
-	mouseYRel = (mouseY - centerY) * backingScale()
 
 	if ( head && ! quickLook )
 	{
@@ -5760,9 +5718,17 @@ function setCallBacks()
 	}
 
 	image = document.getElementById('hiddenImage');
-	image.onload = function()
+
+	if ( image.complete )
 	{
 		hiddenPattern = context.createPattern(image, 'repeat');
+	}
+	else
+	{
+		image.onload = function()
+		{
+			hiddenPattern = context.createPattern(image, 'repeat');
+		}
 	}
 
 	var loadingImageElement = document.getElementById('loadingImage');
@@ -5837,8 +5803,8 @@ function setFocus(node)
 	}
 
 	var table = '<table>';
-	//TODO: use CSS margins instead of an additional column
-	table += '<tr><td></td><td></td></tr>';
+
+	table += '<tr><td></td></tr>';
 
 	for ( var i = 0; i < node.attributes.length; i++ )
 	{
@@ -6070,9 +6036,24 @@ function snapshot()
 
 	svg += svgFooter();
 
-	var snapshotWindow = window.open('', '_blank', '', 'replace=false');
-	snapshotWindow.document.write('<html><body><a href="data:image/svg+xml,' + encodeURIComponent(svg) + '" download="snapshot.svg">Download Snapshot</a></html></body>');
-	snapshotWindow.document.write(svg);
+	snapshotWindow = window.open
+	(
+		'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg),
+		'_blank'
+	);
+/*	var data = window.open('data:text/plain;charset=utf-8,hello', '_blank');
+	var data = window.open('', '_blank');
+	data.document.open('text/plain');
+	data.document.write('hello');
+	data.document.close();
+	var button = document.createElement('input');
+	button.type = 'button';
+	button.value = 'save';
+	button.onclick = save;
+	data.document.body.appendChild(button);
+//	snapshotWindow.document.write(svg);
+//	snapshotWindow.document.close();
+*/
 }
 
 function save()
@@ -6569,7 +6550,7 @@ function updateView()
 
 function updateMaxAbsoluteDepth()
 {
-	while ( maxAbsoluteDepth > 1 && selectedNode.depth > maxAbsoluteDepth - 1 )
+	while ( selectedNode.depth > maxAbsoluteDepth - 1 )
 	{
 		selectedNode = selectedNode.getParent();
 	}

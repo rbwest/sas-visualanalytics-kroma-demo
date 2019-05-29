@@ -11,8 +11,6 @@
 
     <script type="text/javascript" src="./messagingUtil.js"></script>
 
-    <script type="text/javascript" src="./krona-2.0.js"></script>
-
     <script type="text/javascript">
       document.addEventListener("DOMContentLoaded", function() {
         /******************************************************* Declare variables *******************************************************/
@@ -59,7 +57,8 @@
         let VA_RESULT_NAME; // Result name required to send messages back to VA
         let METADATA; // Metadata to be parsed from VA data message
         let DATA; // Data to be parsed from VA data message
-        let NEST; //
+        let NEST; // Nested data structure built from DATA for recursive parsing
+        let DESCENDANTS; // Flattened nest for appending entries
         let NUM_TIERS; // Number of tiers in VA data message
         let NUM_METRICS; // Number of metrics in VA data message
         let NUM_DATASETS; // Number of datasets in VA data message
@@ -73,8 +72,6 @@
 
         // Take action on received data
         function onDataReceived(messageFromVA) {
-          console.clear();
-          console.log(messageFromVA);
           // Initialize data variables
           VA_MESSAGE = messageFromVA;
           VA_RESULT_NAME = messageFromVA.resultName;
@@ -135,8 +132,6 @@
             )
             .values();
 
-          // console.log(METADATA);
-
           // Set indices using metadata
           NUM_TIERS = METADATA.tiers.length;
           NUM_METRICS = METADATA.metrics.length;
@@ -193,9 +188,7 @@
             i += iOffset;
           }
 
-          console.log("DATA");
-          console.log(DATA);
-
+          // Create nest from DATA for parsing recusively
           NEST = nestLayer({
             id: "root",
             name: METADATA.tiers[0].label,
@@ -203,21 +196,32 @@
             children: []
           });
 
-          console.log("NEST");
-          console.log(NEST);
-
+          // Propogate values recursively through up nest
           propogateVals(NEST);
 
-          console.log("NEST AFTER PROP");
-          console.log(NEST);
+          // Flatten nest after processing for appending
+          DESCENDANTS = d3.hierarchy(NEST).descendants();
 
-          let DESCENDANTS = d3.hierarchy(NEST).descendants();
+          // Remove all elements created by krona
+          d3.selectAll("body > *")
+            .filter(function(d, i) {
+              return i > 4;
+            })
+            .remove();
 
-          console.log("DESCENDANTS");
-          console.log(DESCENDANTS);
+          // Remove krona script
+          d3.select("head")
+            .selectAll("scripts")
+            .filter(function(d, i) {
+              return i == 3;
+            })
+            .remove();
 
           // Grab container
           const cont = d3.select("#krona-container");
+
+          // Empty container
+          cont.selectAll("*").remove();
 
           // Append krona
           const krona = cont.append("krona").attr("id", "krona");
@@ -245,8 +249,6 @@
                 });
             });
 
-          console.log("before color");
-
           // Append color
           krona
             .selectAll("color")
@@ -267,10 +269,6 @@
             )
             .attr("hueStart", 120)
             .attr("hueStart", 240);
-
-          console.log(d3.select("color").attr("valueEnd"));
-
-          console.log("after color");
 
           // Append data sets
           krona
@@ -294,7 +292,16 @@
             appendNode(DESCENDANTS[i]);
           }
 
-          window.loadKrona();
+          // Load krona script
+          d3.select("head")
+            .append("script")
+            .attr("type", "text/javascript")
+            .attr("src", "./krona-2.0.js")
+            .each(function() {
+              this.onload = function() {
+                window.onload();
+              };
+            });
         }
 
         /******************************************************* Helper Functions *******************************************************/
@@ -324,8 +331,6 @@
             // Create id for data element
             dataId = "";
 
-            // console.log(catIndex);
-            // console.log(data[i]);
             for (let j = 0; j <= catIndex; j++) {
               dataId += j == 0 ? "" : "-";
               dataId += data[i][j].replace(/\W/g, "_");
