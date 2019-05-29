@@ -300,6 +300,17 @@
             .each(function() {
               this.onload = function() {
                 window.onload();
+
+                // Remove non-functioning buttons
+                d3.selectAll("div")
+                  .filter(function() {
+                    return (
+                      this.title.includes("Render the current") ||
+                      this.title.includes("Show a link") ||
+                      this.title.includes("Help")
+                    );
+                  })
+                  .remove();
               };
             });
         }
